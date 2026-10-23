@@ -3,8 +3,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DeadlineCountdown } from './DeadlineCountdown';
 import { PostActionButtons } from './PostActionButtons';
+import { PostReactions } from './PostReactions';
 import type { Post, ActionStatus } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Workshop':        'bg-blue-500',
@@ -43,6 +46,11 @@ export function PostCard({
 }: Props) {
   const color = CATEGORY_COLORS[post.category] ?? 'bg-gray-500';
   const isDeadlinePast = post.deadline ? new Date(post.deadline) < new Date() : false;
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   return (
     <Card
@@ -72,6 +80,18 @@ export function PostCard({
           )}
         </div>
 
+        {/* Poster image */}
+        {post.image_url && (
+          <div className="mb-3 -mx-5 -mt-1">
+            <img
+              src={post.image_url}
+              alt={post.title}
+              className="w-full max-h-56 object-cover rounded-t-none"
+              loading="lazy"
+            />
+          </div>
+        )}
+
         {/* Title + summary */}
         <h3 className="font-semibold text-base leading-snug mb-1">{post.title}</h3>
         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{post.summary}</p>
@@ -98,6 +118,9 @@ export function PostCard({
             onRemove={onRemoveAction}
           />
         )}
+
+        {/* Reactions */}
+        <PostReactions postId={post.id} userId={userId} />
 
         {/* Footer */}
         <p className="text-xs text-muted-foreground mt-3">

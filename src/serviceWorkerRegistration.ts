@@ -10,7 +10,7 @@ export function register() {
     }
 
     window.addEventListener('load', () => {
-      const swUrl = `${import.meta.env.BASE_URL}firebase-messaging-sw.js`;
+      const swUrl = `${import.meta.env.BASE_URL}push-sw.js`;
 
       navigator.serviceWorker
         .register(swUrl)

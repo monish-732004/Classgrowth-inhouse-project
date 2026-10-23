@@ -1,372 +1,230 @@
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Bell, BellOff, ArrowRight, Zap, History } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from 'react';
-import { requestNotificationPermission, onMessageListener } from '@/lib/firebase';
-import { toast } from '@/components/ui/use-toast';
-import heroBg from "@/assets/hero-bg.jpg";
-import { getTheme, applyTheme } from "@/lib/utils";
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import {
+  ArrowRight, Bell, Bookmark, CalendarClock, Search, Sparkles, Users,
+} from 'lucide-react';
+import heroBg from '@/assets/hero-bg.jpg';
+import { cn } from '@/lib/utils';
 
-const Index = () => {
+const FEATURES = [
+  {
+    icon: Sparkles,
+    title: 'Personalized discovery',
+    desc: 'Opportunities ranked to your academic profile, interests, and career goals.',
+  },
+  {
+    icon: CalendarClock,
+    title: 'Deadline tracking',
+    desc: 'See exactly how much time you have left, grouped by urgency.',
+  },
+  {
+    icon: Search,
+    title: 'Smart search',
+    desc: 'Find anything across all announcements instantly with full-text search.',
+  },
+  {
+    icon: Bell,
+    title: 'Instant updates',
+    desc: 'Get notified in the browser the moment your FA posts something new.',
+  },
+  {
+    icon: Bookmark,
+    title: 'Save for later',
+    desc: 'Bookmark opportunities and track your application progress in one place.',
+  },
+  {
+    icon: Users,
+    title: 'Faculty announcements',
+    desc: 'Structured updates from your Faculty Advisor — no noise, no WhatsApp chains.',
+  },
+];
+
+const STEPS = [
+  {
+    n: '01',
+    title: 'Sign in with your SRM email',
+    desc: 'Use your @srmist.edu.in account. No extra registration needed.',
+  },
+  {
+    n: '02',
+    title: 'Set up your profile',
+    desc: 'Tell us your branch, year, and career interests once.',
+  },
+  {
+    n: '03',
+    title: 'Discover what matters',
+    desc: 'Your feed is ranked by relevance. Never miss a deadline again.',
+  },
+];
+
+export default function Index() {
   const navigate = useNavigate();
-  useEffect(() => {
-    applyTheme(getTheme() || "light");
-  }, [navigate]);
-  const navigateProperly = () => {
-    if(supabase.auth.getUser){
-      navigate("/dashboard");
-    } else {
-      navigate("/auth");
-    }
-  }
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <section 
-        className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden pt-20"
+      {/* ── HERO ── */}
+      <section
+        className="relative min-h-[100svh] flex items-center justify-center overflow-hidden"
         style={{
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url(${heroBg})`,
+          backgroundImage: `url(${heroBg})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundPosition: 'center 30%',
         }}
       >
-        <div className="container mx-auto px-4 text-center text-white relative z-10">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in">
-            ClassGrowth
-          </h1>
-          <p className="text-xl md:text-2xl mb-8 max-w-2xl mx-auto text-gray-100">
-            Your personalized information hub for workshops, placements, tests, and industry updates
-          </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Button 
-              size="lg" 
-              onClick={() => navigate("/auth")}
-              className="text-lg px-8"
-            >
-              Get Started <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+        {/* overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/40 to-black/72" />
+
+        <div className="relative z-10 container mx-auto px-4 pt-24 pb-20">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/20 bg-white/10 text-white/90 text-xs font-medium mb-6 backdrop-blur-sm animate-fade-in">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Built for the SRM student community
+            </span>
+
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white leading-[1.1] text-balance animate-fade-up mb-5">
+              Your campus opportunities,<br className="hidden sm:block" /> all in one place.
+            </h1>
+
+            <p className="text-lg text-white/80 max-w-xl leading-relaxed animate-fade-up-delay-1 mb-8">
+              Discover placements, workshops, deadlines, and technical opportunities — curated by your Faculty Advisor and ranked around your interests.
+            </p>
+
+            <div className="flex flex-wrap gap-3 animate-fade-up-delay-2">
+              <Button
+                size="lg"
+                onClick={() => navigate('/auth')}
+                className="text-base px-6 shadow-lg shadow-primary/25"
+              >
+                Get started <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+              <a href="#features">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-base px-6 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm"
+                >
+                  Explore features
+                </Button>
+              </a>
+            </div>
           </div>
+        </div>
+
+        {/* scroll hint */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce text-white/40">
+          <div className="h-6 w-px bg-white/30 mx-auto mb-1" />
+          <div className="text-xs tracking-widest uppercase">scroll</div>
         </div>
       </section>
 
-
-      {/* About Section */}
-      <section className="py-20 bg-white dark:bg-slate-900">
+      {/* ── FEATURES ── */}
+      <section id="features" className="py-24 bg-background">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-        <h2 className="text-3xl md:text-4xl font-bold mb-8 text-gray-900 dark:text-white">
-          About ClassGrowth
-        </h2>
-        <div className="prose prose-lg text-gray-600 dark:prose-invert dark:text-gray-300 max-w-none mx-auto">
-          <p>
-            ClassGrowth is a smart, minimal app that centralizes all updates from our Faculty Advisor. 
-            Dr A Prabhu Chakkaravarthy will post workshops, placements, tests, tech news, and industry updates with a short title, 
-            summary, and link. Students log in with their SRM email, select their interests, and get a clean, 
-            personalized feed of relevant notifications. Each post interaction is saved in their history for easy reference. 
-            ClassGrowth keeps students informed, organized, and connected to opportunities that matter most.
-          </p>
-          <p className="mt-4">
-            Our mission is to bridge the gap between faculty and students, ensuring that important information 
-            is easily accessible and never missed. With a clean, intuitive interface, ClassGrowth makes it simple 
-            to stay on top of all academic and professional development opportunities.
-          </p>
-        </div>
+          <div className="text-center mb-14">
+            <h2 className="text-3xl font-bold mb-3">Everything you need, nothing you don't</h2>
+            <p className="text-muted-foreground text-base max-w-xl mx-auto">
+              ClassGrowth surfaces the right opportunities at the right time, without the noise.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="group p-6 rounded-xl border border-border bg-card hover:shadow-hover transition-all duration-200 hover:-translate-y-0.5"
+              >
+                <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <Icon className="h-5 w-5 text-primary group-hover:text-primary-foreground transition-colors" />
+                </div>
+                <h3 className="font-semibold text-base mb-1.5">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-primary text-white">
+      {/* ── HOW IT WORKS ── */}
+      <section id="how-it-works" className="py-24 bg-secondary/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl font-bold mb-3">Get started in minutes</h2>
+            <p className="text-muted-foreground text-base max-w-md mx-auto">
+              No lengthy setup. Three steps and you're discovering opportunities.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {STEPS.map(({ n, title, desc }, i) => (
+              <div key={n} className="relative flex flex-col items-center text-center">
+                {/* connector line */}
+                {i < STEPS.length - 1 && (
+                  <div className="hidden md:block absolute top-6 left-[calc(50%+2rem)] right-0 h-px bg-border" />
+                )}
+                <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm mb-4 shadow-sm z-10">
+                  {n}
+                </div>
+                <h3 className="font-semibold text-base mb-2">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ABOUT ── */}
+      <section className="py-24 bg-background">
+        <div className="container mx-auto px-4 max-w-3xl text-center">
+          <h2 className="text-3xl font-bold mb-5">About ClassGrowth</h2>
+          <p className="text-muted-foreground text-base leading-relaxed mb-4">
+            ClassGrowth centralizes all updates from your Faculty Advisor into a clean, personalized feed. Workshops, placements, tests, tech news, and industry updates — with a short title, summary, and direct link.
+          </p>
+          <p className="text-muted-foreground text-base leading-relaxed">
+            Log in with your SRM email, set your interests, and get a curated view of everything relevant to your academic and professional journey. Every post interaction is saved in your history for easy reference.
+          </p>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="py-20 bg-primary">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+          <h2 className="text-3xl font-bold text-primary-foreground mb-4">
             Ready to stay connected?
           </h2>
-          <p className="text-xl mb-8 max-w-2xl mx-auto opacity-90">
-            Join ClassGrowth and never miss important updates again
+          <p className="text-primary-foreground/80 text-base mb-8 max-w-md mx-auto">
+            Join ClassGrowth and never miss an important update again.
           </p>
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             variant="secondary"
-            onClick={() => navigateProperly()}
-            className="text-lg px-8"
+            onClick={() => navigate('/auth')}
+            className="text-base px-8 shadow-lg"
           >
-            Sign Up Now <ArrowRight className="ml-2 h-5 w-5" />
+            Sign up now <ArrowRight className="ml-1.5 h-4 w-4" />
           </Button>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-8 bg-card border-t">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p>By the U1 For the U1 To the U1</p>
-          <p className="mt-4">&copy; 2025 ClassGrowth. All rights reserved by R.Monish</p>
-          <div className="mt-4 text-sm text-gray-400">
-            <p>Debug: Check browser console for notification logs</p>
+      {/* ── FOOTER ── */}
+      <footer className="py-10 bg-background border-t border-border">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">
+                CG
+              </div>
+              <span className="font-semibold text-sm">ClassGrowth</span>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Built by the U1, for the U1. &copy; 2025 ClassGrowth — by R. Monish
+            </p>
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+              <a href="#how-it-works" className="hover:text-foreground transition-colors">How it works</a>
+            </div>
           </div>
         </div>
       </footer>
     </div>
   );
-};
-
-interface Notification {
-  id: string;
-  title: string;
-  summary: string;
-  category: string;
-  link: string;
-  created_at: string;
 }
-
-const NotificationPermissionButton = () => {
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSupported, setIsSupported] = useState(true);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [lastFetched, setLastFetched] = useState<Date | null>(null);
-
-  // Fetch notifications from the server
-  const fetchNotifications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      
-      setNotifications(data || []);
-      
-      // Update unread count based on last fetched time
-      if (lastFetched && data) {
-        const newNotifications = data.filter(
-          (n: any) => new Date(n.created_at) > lastFetched
-        );
-        setUnreadCount(prev => prev + newNotifications.length);
-      }
-      
-      setLastFetched(new Date());
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  useEffect(() => {
-    // Check if notifications are supported and already enabled
-    const checkNotificationSupport = () => {
-      if (typeof window === 'undefined') return;
-      
-      const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
-      setIsSupported(supported);
-      
-      if (supported) {
-        if (Notification.permission === 'granted') {
-          setIsSubscribed(true);
-          setupMessageListener();
-        }
-        // Initial fetch of notifications
-        fetchNotifications();
-        // Set up polling for new notifications (every 5 minutes)
-        const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-      }
-    };
-    
-    checkNotificationSupport();
-  }, []);
-
-  const setupMessageListener = () => {
-    onMessageListener()
-      .then((payload: any) => {
-        console.log('Message received in component:', payload);
-        toast({
-          title: payload?.notification?.title || 'New Notification',
-          description: payload?.notification?.body || 'You have a new notification',
-          duration: 5000,
-        });
-      })
-      .catch(err => console.error('Error in message listener:', err));
-  };
-
-  const handleSubscribe = async (e?: React.MouseEvent) => {
-    try {
-      setIsLoading(true);
-      console.log('Requesting notification permission...');
-      const token = await requestNotificationPermission();
-      
-      if (token) {
-        setIsSubscribed(true);
-        setupMessageListener();
-        toast({
-          title: 'Notifications enabled',
-          description: 'You will now receive notifications',
-          duration: 3000,
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to enable notifications. Please check console for details.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Error subscribing to notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to enable notifications. Please check console for details.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isNotificationSupported = typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
-
-  const toggleNotifications = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isSubscribed) {
-      // If already subscribed, clicking will show/hide notifications
-      setShowNotifications(!showNotifications);
-      if (!showNotifications) {
-        // If opening notifications, mark all as read
-        setUnreadCount(0);
-      }
-    } else {
-      // If not subscribed, handle subscription
-      handleSubscribe(e);
-    }
-  };
-
-  const handleCloseNotifications = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowNotifications(false);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        onClick={toggleNotifications}
-        disabled={!isNotificationSupported}
-        className={`p-2 rounded-full relative ${
-          isSubscribed 
-            ? 'text-primary hover:bg-primary/10' 
-            : 'text-muted-foreground hover:bg-muted'
-        } transition-colors`}
-        title={
-          !isNotificationSupported 
-            ? 'Notifications not supported in your browser' 
-            : isSubscribed 
-              ? 'View notifications' 
-              : 'Enable notifications'
-        }
-      >
-        {isLoading ? (
-          <span className="animate-spin">⏳</span>
-        ) : isSubscribed ? (
-          <>
-            <Bell className="h-6 w-6" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </>
-        ) : (
-          <BellOff className="h-6 w-6" />
-        )}
-      </button>
-
-      {/* Notifications Popup */}
-      {isSubscribed && showNotifications && (
-        <div className="absolute right-0 mt-2 w-80 bg-background rounded-lg shadow-lg border overflow-hidden z-50">
-          <div className="p-3 border-b flex justify-between items-center">
-            <h3 className="font-medium">Notifications</h3>
-            <button 
-              onClick={handleCloseNotifications}
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Close notifications"
-            >
-              ✕
-            </button>
-          </div>
-          
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">
-                No notifications yet
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <a
-                  key={notification.id}
-                  href={notification.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 hover:bg-muted/50 border-b last:border-b-0 transition-colors"
-                  onClick={handleCloseNotifications}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">
-                      <div className={`h-2 w-2 rounded-full ${
-                        notification.category === 'Workshop' ? 'bg-blue-500' :
-                        notification.category === 'Placement Info' ? 'bg-green-500' :
-                        notification.category === 'Test Link' ? 'bg-yellow-500' :
-                        notification.category === 'Tech News' ? 'bg-purple-500' : 'bg-gray-500'
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm font-medium">{notification.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(notification.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {notification.summary}
-                      </p>
-                      <div className="mt-2">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          notification.category === 'Workshop' ? 'bg-blue-100 text-blue-800' :
-                          notification.category === 'Placement Info' ? 'bg-green-100 text-green-800' :
-                          notification.category === 'Test Link' ? 'bg-yellow-100 text-yellow-800' :
-                          notification.category === 'Tech News' ? 'bg-purple-100 text-purple-800' : 
-                          'bg-gray-100 text-gray-800'
-                        }">
-                          {notification.category}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </a>
-              ))
-            )}
-          </div>
-          
-          {notifications.length > 0 && (
-            <div className="p-3 border-t text-center">
-              <a 
-                href="/dashboard" 
-                className="text-sm text-primary hover:underline"
-                onClick={handleCloseNotifications}
-              >
-                View all notifications
-              </a>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {!isNotificationSupported && (
-        <p className="text-xs text-muted-foreground mt-1">Notifications not supported in your browser</p>
-      )}
-    </div>
-  );
-};
-
-export default Index;

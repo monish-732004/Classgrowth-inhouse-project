@@ -21,19 +21,31 @@ profileRouter.put('/', requireAuth, async (req, res) => {
 
   const { branch, year, cgpa_band, career_tracks } = parsed.data;
 
-  const profileText = `${branch} year ${year} CGPA ${cgpa_band} interested in ${career_tracks.join(', ')}`;
-  const embedding = await embedText(profileText);
-  const embeddingLiteral = `[${embedding.join(',')}]`;
+  // Try to generate an embedding — non-fatal if the embedding service is down
+  let embeddingLiteral: string | undefined;
+  try {
+    const profileText = `${branch} year ${year} CGPA ${cgpa_band} interested in ${career_tracks.join(', ')}`;
+    const embedding = await embedText(profileText);
+    embeddingLiteral = `[${embedding.join(',')}]`;
+  } catch {
+    // Profile saves successfully without an embedding; search quality degrades gracefully
+  }
 
-  await supabase.from('student_profiles').upsert({
-    user_id:           user.id,
-    branch,
-    year,
-    cgpa_band,
-    career_tracks,
-    profile_embedding: embeddingLiteral,
-    updated_at:        new Date().toISOString(),
-  }, { onConflict: 'user_id' });
+  const row: Record<string, unknown> = {
+    user_id: user.id, branch, year, cgpa_band, career_tracks,
+    updated_at: new Date().toISOString(),
+  };
+  if (embeddingLiteral) row.profile_embedding = embeddingLiteral;
+
+  const { error: upsertError } = await supabase
+    .from('student_profiles')
+    .upsert(row, { onConflict: 'user_id' });
+
+  if (upsertError) {
+    console.error('[profile PUT] upsert error:', upsertError);
+    res.status(500).json({ error: upsertError.message });
+    return;
+  }
 
   res.json({ ok: true });
 });

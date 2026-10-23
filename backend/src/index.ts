@@ -28,8 +28,9 @@ app.use('/posts',         postsRouter);
 app.use('/profile',       profileRouter);
 app.use('/actions',       actionsRouter);
 
-startJobQueues();
-
 app.listen(PORT, () => {
   console.log(`ClassGrowth backend running on port ${PORT}`);
 });
+
+// Start queues after server is up (async, non-blocking)
+startJobQueues();

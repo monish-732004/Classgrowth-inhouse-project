@@ -53,7 +53,7 @@ notificationsRouter.post('/schedule', requireAuth, async (req, res) => {
     const fireAt = deadlineMs - offset;
     if (fireAt > now) {
       const hoursLeft = offset / 3600000;
-      await remindersQueue.add(
+      await remindersQueue?.add(
         { postId, userId: user.id, token: profile.fcm_token, title, hoursLeft },
         { delay: fireAt - now, attempts: 3, backoff: { type: 'exponential', delay: 5000 } }
       );

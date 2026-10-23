@@ -62,6 +62,7 @@ export interface Post {
   published_at: string | null;
   created_by: string;
   section_id: string | null;
+  image_url?: string | null;
   similarity?: number;
   score?: number;
   hours_left?: number;

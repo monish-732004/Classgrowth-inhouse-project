@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff, X } from 'lucide-react';
-import { requestNotificationPermission, onMessageListener } from '@/lib/firebase';
+import { requestNotificationPermission, onMessageListener } from '@/lib/webpush';
 import { useToast } from '@/components/ui/use-toast';
 import { useUser } from '../hooks/use-user';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -138,17 +138,14 @@ export const NotificationPermission = () => {
           throw new Error('Failed to get FCM token');
         }
       } else if (permission === 'denied') {
-        throw new Error('Notification permission was denied');
+        toast({
+          title: 'Notifications blocked',
+          description: 'Allow notifications in your browser site settings to enable this.',
+        });
+        return;
       }
     } catch (error) {
       console.error('Error toggling notifications:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      
-      toast({
-        title: 'Error',
-        description: `Failed to enable notifications: ${errorMessage}`,
-        variant: 'destructive',
-      });
     } finally {
       setIsLoading(false);
     }

@@ -56,7 +56,7 @@ postsRouter.post(
         for (const offset of OFFSETS_MS) {
           const fireAt = deadlineMs - offset;
           if (fireAt > now) {
-            await remindersQueue.add(
+            await remindersQueue?.add(
               { postId: id, userId: profile.id, token: profile.fcm_token, title: post.title, hoursLeft: offset / 3600000 },
               { delay: fireAt - now, attempts: 3 }
             );
@@ -110,31 +110,32 @@ postsRouter.get('/for-you', requireAuth, async (req, res) => {
 // GET /posts/search?q=... — semantic + full-text search
 postsRouter.get('/search', requireAuth, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
-  if (!q) { res.json({ posts: [] }); return; }
+  if (!q) { res.json({ posts: [], source: 'fts' }); return; }
 
-  // Single-word or very short queries → full-text search fallback
-  if (q.split(/\s+/).length <= 2) {
-    const { data: posts } = await supabase
-      .from('posts')
-      .select('*')
-      .textSearch('fts', q, { type: 'websearch' })
-      .eq('is_archived', false)
-      .limit(20);
-    res.json({ posts: posts ?? [], source: 'fts' });
-    return;
+  // Try semantic search for longer queries; fall back to FTS if embedding service is down
+  if (q.split(/\s+/).length > 2) {
+    try {
+      const embedding = await embedText(q);
+      const { data: posts, error } = await supabase.rpc('semantic_search', {
+        p_embedding: `[${embedding.join(',')}]`,
+        p_limit: 20,
+      });
+      if (!error) {
+        res.json({ posts: posts ?? [], source: 'semantic' });
+        return;
+      }
+    } catch {
+      // Embedding service unavailable — fall through to FTS
+    }
   }
 
-  // Semantic search via pgvector
-  const embedding = await embedText(q);
-  const { data: posts, error } = await supabase.rpc('semantic_search', {
-    p_embedding: `[${embedding.join(',')}]`,
-    p_limit: 20,
-  });
+  // Full-text search (always works)
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*')
+    .textSearch('fts', q, { type: 'websearch', config: 'english' })
+    .eq('is_archived', false)
+    .limit(20);
 
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-
-  res.json({ posts: posts ?? [], source: 'semantic' });
+  res.json({ posts: posts ?? [], source: 'fts' });
 });

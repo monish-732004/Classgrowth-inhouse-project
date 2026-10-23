@@ -12,7 +12,7 @@ import DeadlineView from './pages/DeadlineView';
 import Search from './pages/Search';
 import NotFound from './pages/NotFound';
 import { Layout } from './components/Layout';
-import { requestNotificationPermission } from './lib/firebase';
+import { requestNotificationPermission } from './lib/webpush';
 import { notificationsApi } from './lib/api';
 import { supabase } from './integrations/supabase/client';
 
@@ -21,14 +21,14 @@ const queryClient = new QueryClient();
 const registerServiceWorker = async () => {
   if ('serviceWorker' in navigator) {
     try {
-      await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      await navigator.serviceWorker.register('/push-sw.js');
     } catch (err) {
       console.error('Service Worker registration failed:', err);
     }
   }
 };
 
-// Request FCM permission and register the token with the backend
+// Request Web Push permission and register the subscription endpoint with the backend
 const initPush = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return; // only for logged-in users

@@ -8,41 +8,81 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
-  LogOut, Settings, History, Sparkles, Clock, Search, UserCircle, Loader2,
+  Sparkles, Clock, Search, History, Settings, Loader2, UserCircle,
+  CalendarClock, Bookmark, ArrowRight, TrendingUp,
 } from 'lucide-react';
 import { PostCard } from '@/components/PostCard';
 import { useAllPosts, useForYouPosts, useDeadlinePosts } from '@/hooks/usePosts';
 import { usePostActions } from '@/hooks/usePostActions';
 import { postsApi, type Post, type ActionStatus } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 const CATEGORIES = ['Workshop', 'Placement Info', 'Test Link', 'Tech News', 'Industry Update'];
 
+const CATEGORY_COLORS: Record<string, string> = {
+  'Workshop':        'bg-blue-500',
+  'Placement Info':  'bg-primary',
+  'Test Link':       'bg-amber-500',
+  'Tech News':       'bg-sky-500',
+  'Industry Update': 'bg-purple-500',
+};
+
 interface StudentDashboardProps { session: Session | null }
 
+function PostSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+      <div className="flex gap-2">
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <Skeleton className="h-5 w-3/4" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+    </div>
+  );
+}
+
 const StudentDashboard = ({ session }: StudentDashboardProps) => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [filterCat, setFilterCat]   = useState('');
-  const [searchQ,   setSearchQ]     = useState('');
-  const [searching, setSearching]   = useState(false);
+  const navigate    = useNavigate();
+  const { toast }   = useToast();
+  const [filterCat, setFilterCat]     = useState('');
+  const [searchQ,   setSearchQ]       = useState('');
+  const [searching, setSearching]     = useState(false);
   const [searchResults, setSearchResults] = useState<Post[] | null>(null);
+  const [firstName, setFirstName]     = useState('');
 
-  const { posts: allPosts,     loading: allLoading,     refetch: refetchAll }    = useAllPosts(filterCat || undefined);
-  const { posts: forYouPosts,  loading: forYouLoading,  source }                 = useForYouPosts();
-  const { posts: deadlinePosts,loading: deadlineLoading }                        = useDeadlinePosts();
-  const { actions, upsert: upsertAction, remove: removeAction }                 = usePostActions();
+  const { posts: allPosts,      loading: allLoading      } = useAllPosts(filterCat || undefined);
+  const { posts: forYouPosts,   loading: forYouLoading, source } = useForYouPosts();
+  const { posts: deadlinePosts, loading: deadlineLoading } = useDeadlinePosts();
+  const { actions, upsert: upsertAction, remove: removeAction } = usePostActions();
 
-  // Track view in Supabase
+  // Greeting name
+  useEffect(() => {
+    if (session?.user) {
+      const meta = session.user.user_metadata;
+      const name = meta?.full_name ?? meta?.name ?? session.user.email?.split('@')[0] ?? '';
+      setFirstName(name.split(' ')[0]);
+    }
+  }, [session]);
+
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
+
   const handleView = useCallback(async (postId: string) => {
     if (!session?.user?.id) return;
     await supabase.from('post_views').insert({ user_id: session.user.id, post_id: postId });
-    // log session for active-hours computation
     await supabase.from('sessions').insert({ user_id: session.user.id });
   }, [session]);
 
-  // Track click
   const handleLinkClick = useCallback(async (postId: string) => {
     if (!session?.user?.id) return;
     await supabase
@@ -52,7 +92,6 @@ const StudentDashboard = ({ session }: StudentDashboardProps) => {
       .eq('post_id', postId);
   }, [session]);
 
-  // Semantic / FTS search
   const handleSearch = async () => {
     if (!searchQ.trim()) { setSearchResults(null); return; }
     setSearching(true);
@@ -65,181 +104,252 @@ const StudentDashboard = ({ session }: StudentDashboardProps) => {
     setSearching(false);
   };
 
-  const sharedCardProps = {
-    onView:         handleView,
-    onLinkClick:    handleLinkClick,
-    onUpsertAction: upsertAction,
-    onRemoveAction: removeAction,
-  };
+  const sharedCardProps = { onView: handleView, onLinkClick: handleLinkClick, onUpsertAction: upsertAction, onRemoveAction: removeAction };
 
   const renderPosts = (posts: Post[], loading: boolean, emptyMsg: string) => {
-    if (loading) return <div className="animate-pulse text-muted-foreground py-8 text-center">Loading…</div>;
-    if (!posts.length) return <p className="text-center text-muted-foreground py-8">{emptyMsg}</p>;
+    if (loading) return <>{[1,2,3].map(i => <PostSkeleton key={i} />)}</>;
+    if (!posts.length) return (
+      <div className="text-center py-16 text-muted-foreground">
+        <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-30" />
+        <p className="text-sm">{emptyMsg}</p>
+      </div>
+    );
     return posts.map(p => (
       <PostCard key={p.id} post={p} currentAction={actions.get(p.id)?.status as ActionStatus} {...sharedCardProps} />
     ));
   };
 
+  const upcomingDeadlines = deadlinePosts.slice(0, 4);
+  const savedPosts = [...actions.values()].filter(a => a.status === 'saved').length;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 pt-8 pb-16">
+
+        {/* ── Welcome row ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Your Dashboard</h1>
-            <p className="text-muted-foreground">Stay updated and track your opportunities</p>
+            <h1 className="text-2xl font-bold">
+              {greeting}{firstName ? `, ${firstName}` : ''}.
+            </h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Here are the opportunities worth checking today.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/profile-setup')} title="Edit profile">
-              <UserCircle className="h-5 w-5" />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/profile-setup')}>
+              <UserCircle className="h-3.5 w-3.5 mr-1.5" /> Profile
             </Button>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              <LogOut className="mr-2 h-4 w-4" /> Sign Out
+            <Button size="sm" onClick={() => navigate('/search')}>
+              <Search className="h-3.5 w-3.5 mr-1.5" /> Search
             </Button>
           </div>
         </div>
 
-        <Tabs defaultValue="all" className="space-y-4">
-          <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="for-you">
-              <Sparkles className="h-3.5 w-3.5 mr-1" /> For You
-            </TabsTrigger>
-            <TabsTrigger value="deadlines">
-              <Clock className="h-3.5 w-3.5 mr-1" /> Deadlines
-            </TabsTrigger>
-            <TabsTrigger value="search">
-              <Search className="h-3.5 w-3.5 mr-1" /> Search
-            </TabsTrigger>
-            <TabsTrigger value="activity">
-              <History className="h-3.5 w-3.5 mr-1" /> Activity
-            </TabsTrigger>
-            <TabsTrigger value="preferences">
-              <Settings className="h-3.5 w-3.5 mr-1" /> Prefs
-            </TabsTrigger>
-          </TabsList>
+        {/* ── Profile prompt ── */}
+        {source === 'recency' && (
+          <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10 text-sm text-amber-800 dark:text-amber-300">
+            <TrendingUp className="h-4 w-4 shrink-0" />
+            <span>
+              Complete your <button onClick={() => navigate('/profile-setup')} className="underline font-medium">profile</button> to get a personalized feed instead of recent posts.
+            </span>
+          </div>
+        )}
 
-          {/* ── ALL ── */}
-          <TabsContent value="all" className="space-y-3">
-            <div className="flex flex-wrap gap-2 mb-2">
-              <Button
-                size="sm" variant={!filterCat ? 'default' : 'outline'}
-                onClick={() => setFilterCat('')}
-              >All</Button>
-              {CATEGORIES.map(c => (
-                <Button key={c} size="sm" variant={filterCat === c ? 'default' : 'outline'}
-                  onClick={() => setFilterCat(c)}>{c}</Button>
-              ))}
-            </div>
-            {renderPosts(allPosts, allLoading, 'No posts yet')}
-          </TabsContent>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+          {/* ── Main feed ── */}
+          <div>
+            <Tabs defaultValue="for-you" className="space-y-4">
+              <TabsList className="h-9 rounded-lg bg-muted/60 p-0.5">
+                <TabsTrigger value="for-you"   className="gap-1.5 text-xs h-8 rounded-md"><Sparkles className="h-3 w-3" />For You</TabsTrigger>
+                <TabsTrigger value="all"        className="text-xs h-8 rounded-md">Latest</TabsTrigger>
+                <TabsTrigger value="deadlines"  className="gap-1.5 text-xs h-8 rounded-md"><Clock className="h-3 w-3" />Closing Soon</TabsTrigger>
+                <TabsTrigger value="activity"   className="gap-1.5 text-xs h-8 rounded-md hidden sm:flex"><History className="h-3 w-3" />Saved</TabsTrigger>
+                <TabsTrigger value="preferences" className="gap-1.5 text-xs h-8 rounded-md hidden sm:flex"><Settings className="h-3 w-3" />Prefs</TabsTrigger>
+              </TabsList>
 
-          {/* ── FOR YOU ── */}
-          <TabsContent value="for-you" className="space-y-3">
-            {source === 'recency' && (
-              <div className="text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
-                Complete your <button className="text-primary underline" onClick={() => navigate('/profile-setup')}>profile</button> to get a personalized feed. Showing recent posts for now.
-              </div>
+              {/* For You */}
+              <TabsContent value="for-you" className="space-y-3 mt-0">
+                {renderPosts(forYouPosts, forYouLoading, 'No posts yet — check back soon.')}
+              </TabsContent>
+
+              {/* Latest */}
+              <TabsContent value="all" className="space-y-3 mt-0">
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  <button
+                    onClick={() => setFilterCat('')}
+                    className={cn('px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+                      !filterCat ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted/60'
+                    )}
+                  >All</button>
+                  {CATEGORIES.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setFilterCat(filterCat === c ? '' : c)}
+                      className={cn('px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+                        filterCat === c ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted/60'
+                      )}
+                    >{c}</button>
+                  ))}
+                </div>
+                {renderPosts(allPosts, allLoading, 'No posts yet.')}
+              </TabsContent>
+
+              {/* Closing Soon */}
+              <TabsContent value="deadlines" className="space-y-3 mt-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Posts with upcoming deadlines, sorted by urgency.</p>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/deadlines')} className="text-xs gap-1">
+                    Full view <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                {renderPosts(deadlinePosts, deadlineLoading, 'No upcoming deadlines.')}
+              </TabsContent>
+
+              {/* Saved / Activity */}
+              <TabsContent value="activity" className="space-y-3 mt-0">
+                <ActivityTab session={session} actions={actions} upsertAction={upsertAction} removeAction={removeAction} handleView={handleView} handleLinkClick={handleLinkClick} />
+              </TabsContent>
+
+              {/* Preferences */}
+              <TabsContent value="preferences" className="mt-0">
+                <PreferencesTab session={session} />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* ── Sidebar ── */}
+          <aside className="hidden lg:flex flex-col gap-4">
+            {/* Quick stats */}
+            <Card className="shadow-card">
+              <CardContent className="pt-5 space-y-3">
+                <h3 className="text-sm font-semibold">Quick stats</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Total posts',    value: allPosts.length,          icon: '📋' },
+                    { label: 'Deadlines',      value: upcomingDeadlines.length, icon: '⏰' },
+                    { label: 'Saved',          value: savedPosts,               icon: '🔖' },
+                    { label: 'For You',        value: forYouPosts.length,       icon: '✨' },
+                  ].map(s => (
+                    <div key={s.label} className="p-3 rounded-lg bg-muted/50 text-center">
+                      <p className="text-lg">{s.icon}</p>
+                      <p className="text-lg font-bold leading-none mt-1">{s.value}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Upcoming deadlines sidebar */}
+            {upcomingDeadlines.length > 0 && (
+              <Card className="shadow-card">
+                <CardContent className="pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">Upcoming deadlines</h3>
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/deadlines')} className="text-xs -mr-2 gap-1">
+                      View all <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {upcomingDeadlines.map(p => {
+                      const hoursLeft = (new Date(p.deadline!).getTime() - Date.now()) / 3600000;
+                      const urgent = hoursLeft < 24;
+                      return (
+                        <div key={p.id} className="flex items-start gap-2 py-2 border-b border-border last:border-0">
+                          <div className={cn('h-2 w-2 rounded-full mt-1.5 shrink-0', CATEGORY_COLORS[p.category] ?? 'bg-muted-foreground')} />
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium leading-snug line-clamp-1">{p.title}</p>
+                            <p className={cn('text-[10px] mt-0.5', urgent ? 'text-destructive font-medium' : 'text-muted-foreground')}>
+                              {urgent ? '< 24h left' : `${Math.round(hoursLeft / 24)}d left`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
             )}
-            {renderPosts(forYouPosts, forYouLoading, 'No posts yet')}
-          </TabsContent>
 
-          {/* ── DEADLINES ── */}
-          <TabsContent value="deadlines" className="space-y-3">
-            {renderPosts(deadlinePosts, deadlineLoading, 'No upcoming deadlines')}
-          </TabsContent>
-
-          {/* ── SEARCH ── */}
-          <TabsContent value="search" className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search posts (semantic + full-text)…"
-                value={searchQ}
-                onChange={e => setSearchQ(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                className="flex-1"
-              />
-              <Button onClick={handleSearch} disabled={searching}>
-                {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              </Button>
-            </div>
-            {searchResults === null && (
-              <p className="text-center text-muted-foreground py-8">Type a query and press Enter or Search</p>
-            )}
-            {searchResults !== null && renderPosts(searchResults, false, 'No results found')}
-          </TabsContent>
-
-          {/* ── ACTIVITY ── */}
-          <TabsContent value="activity" className="space-y-3">
-            <ActivityTab session={session} sharedCardProps={sharedCardProps} actions={actions} />
-          </TabsContent>
-
-          {/* ── PREFERENCES ── */}
-          <TabsContent value="preferences">
-            <PreferencesTab session={session} />
-          </TabsContent>
-        </Tabs>
+            {/* Categories quick filter */}
+            <Card className="shadow-card">
+              <CardContent className="pt-5">
+                <h3 className="text-sm font-semibold mb-3">Browse by category</h3>
+                <div className="flex flex-col gap-1.5">
+                  {CATEGORIES.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => navigate('/search')}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left hover:bg-muted/60 transition-colors"
+                    >
+                      <span className={cn('h-2 w-2 rounded-full', CATEGORY_COLORS[c])} />
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
       </div>
     </div>
   );
 };
 
-// ── Activity sub-component ───────────────────────────────────
+// ── Activity tab ─────────────────────────────────────────────
 
-function ActivityTab({
-  session, sharedCardProps, actions,
-}: {
+function ActivityTab({ session, actions, upsertAction, removeAction, handleView, handleLinkClick }: {
   session: Session | null;
-  sharedCardProps: any;
   actions: Map<string, any>;
+  upsertAction: (id: string, s: ActionStatus) => Promise<void>;
+  removeAction: (id: string) => Promise<void>;
+  handleView: (id: string) => Promise<void>;
+  handleLinkClick: (id: string) => Promise<void>;
 }) {
-  const [actFilter, setActFilter] = useState<string>('all');
+  const [actFilter, setActFilter] = useState('all');
   const [actPosts,  setActPosts]  = useState<Post[]>([]);
   const [loading,   setLoading]   = useState(true);
-
   const ACTION_STATUSES = ['saved', 'applied', 'shortlisted', 'selected'];
 
-  const { remove: removeAction, upsert: upsertAction } = usePostActions();
-
-  const fetch = useCallback(async () => {
-    if (!session?.user?.id) return;
+  const load = useCallback(async () => {
+    if (!session?.user?.id) { setLoading(false); return; }
     setLoading(true);
-    // Get post_ids the student has acted on
-    let query = supabase
-      .from('post_actions')
-      .select('post_id, status')
-      .eq('user_id', session.user.id);
-
-    if (actFilter !== 'all') query = query.eq('status', actFilter);
-
-    const { data: actionRows } = await query;
-    const ids = (actionRows ?? []).map((r: any) => r.post_id);
-
+    let q = supabase.from('post_actions').select('post_id').eq('user_id', session.user.id);
+    if (actFilter !== 'all') q = (q as any).eq('status', actFilter);
+    const { data: rows } = await q;
+    const ids = (rows ?? []).map((r: any) => r.post_id);
     if (!ids.length) { setActPosts([]); setLoading(false); return; }
-
-    const { data: posts } = await supabase.from('posts').select('*').in('id', ids);
-    setActPosts((posts as Post[]) ?? []);
+    const { data } = await supabase.from('posts').select('*').in('id', ids);
+    setActPosts((data as Post[]) ?? []);
     setLoading(false);
   }, [session, actFilter]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {['all', ...ACTION_STATUSES].map(s => (
-          <Button key={s} size="sm" variant={actFilter === s ? 'default' : 'outline'}
-            onClick={() => setActFilter(s)} className="capitalize">{s}</Button>
+          <button
+            key={s}
+            onClick={() => setActFilter(s)}
+            className={cn(
+              'px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize',
+              actFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted/60',
+            )}
+          >{s}</button>
         ))}
       </div>
       {loading
-        ? <div className="animate-pulse text-muted-foreground py-8 text-center">Loading…</div>
+        ? <>{[1,2].map(i => <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-3"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-full" /></div>)}</>
         : actPosts.length === 0
-          ? <p className="text-center text-muted-foreground py-8">No activity yet</p>
+          ? <div className="text-center py-16 text-muted-foreground"><Bookmark className="h-10 w-10 mx-auto mb-3 opacity-30" /><p className="text-sm">No saved posts yet.</p></div>
           : actPosts.map(p => (
               <PostCard key={p.id} post={p}
-                currentAction={actions.get(p.id)?.status}
-                {...sharedCardProps}
+                currentAction={actions.get(p.id)?.status as ActionStatus}
+                onView={handleView}
+                onLinkClick={handleLinkClick}
                 onUpsertAction={upsertAction}
                 onRemoveAction={removeAction}
               />
@@ -249,42 +359,102 @@ function ActivityTab({
   );
 }
 
-// ── Preferences sub-component ────────────────────────────────
+// ── Preferences tab ──────────────────────────────────────────
 
 function PreferencesTab({ session }: { session: Session | null }) {
   const { toast } = useToast();
-  const [prefs, setPrefs] = useState<string[]>([]);
+  const [saved,   setSaved]   = useState<string[]>([]);   // what's in DB
+  const [prefs,   setPrefs]   = useState<string[]>([]);   // local selection
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user?.id) return;
-    const { data } = await supabase.from('user_preferences').select('category').eq('user_id', session.user.id);
-    setPrefs((data ?? []).map((d: any) => d.category));
+    const { data } = await supabase
+      .from('user_preferences').select('category').eq('user_id', session.user.id);
+    const cats = (data ?? []).map((d: any) => d.category);
+    setSaved(cats); setPrefs(cats);
   }, [session]);
 
   useEffect(() => { load(); }, [load]);
 
-  const toggle = async (cat: string, checked: boolean) => {
+  const toggle = (cat: string, checked: boolean) =>
+    setPrefs(p => checked ? [...p, cat] : p.filter(x => x !== cat));
+
+  const handleUpdate = async () => {
     if (!session?.user?.id) return;
-    if (checked) {
-      await supabase.from('user_preferences').insert({ user_id: session.user.id, category: cat as any });
-      setPrefs(p => [...p, cat]);
-    } else {
-      await supabase.from('user_preferences').delete().eq('user_id', session.user.id).eq('category', cat as any);
-      setPrefs(p => p.filter(x => x !== cat));
+    setLoading(true);
+    const uid = session.user.id;
+
+    // Delete all existing prefs then insert selected ones
+    await supabase.from('user_preferences').delete().eq('user_id', uid);
+    if (prefs.length > 0) {
+      await supabase.from('user_preferences').insert(
+        prefs.map(cat => ({ user_id: uid, category: cat as any }))
+      );
     }
-    toast({ title: checked ? `Added ${cat}` : `Removed ${cat}` });
+    setSaved(prefs);
+    toast({
+      title: 'Preferences updated',
+      description: prefs.length === 0
+        ? 'Showing all categories in your feed.'
+        : `Feed will now show: ${prefs.join(', ')}.`,
+    });
+    setLoading(false);
   };
 
+  const isDirty = JSON.stringify([...prefs].sort()) !== JSON.stringify([...saved].sort());
+
   return (
-    <Card>
-      <CardContent className="pt-6 space-y-4">
-        <p className="text-sm text-muted-foreground">Select categories you want to see in the All feed.</p>
-        {CATEGORIES.map(cat => (
-          <div key={cat} className="flex items-center gap-2">
-            <Checkbox id={cat} checked={prefs.includes(cat)} onCheckedChange={c => toggle(cat, c as boolean)} />
-            <Label htmlFor={cat} className="cursor-pointer">{cat}</Label>
+    <Card className="shadow-card">
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h3 className="font-semibold mb-1">Category preferences</h3>
+            <p className="text-sm text-muted-foreground">
+              Select the categories you want to see in your feed.
+              {prefs.length === 0 && <span className="text-primary"> All categories shown.</span>}
+            </p>
           </div>
-        ))}
+          <Button
+            size="sm"
+            onClick={handleUpdate}
+            disabled={!isDirty || loading}
+            className="shrink-0 ml-4"
+          >
+            {loading
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Saving…</>
+              : 'Update feed'}
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {CATEGORIES.map(cat => (
+            <label
+              key={cat}
+              htmlFor={`pref-${cat}`}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
+                prefs.includes(cat)
+                  ? 'border-primary bg-secondary'
+                  : 'border-border hover:bg-muted/40',
+              )}
+            >
+              <Checkbox
+                id={`pref-${cat}`}
+                checked={prefs.includes(cat)}
+                onCheckedChange={c => toggle(cat, c as boolean)}
+              />
+              <span className={cn('h-2 w-2 rounded-full shrink-0', CATEGORY_COLORS[cat])} />
+              <span className="text-sm font-medium">{cat}</span>
+            </label>
+          ))}
+        </div>
+
+        {isDirty && (
+          <p className="text-xs text-muted-foreground mt-4 text-center">
+            You have unsaved changes — click <strong>Update feed</strong> to apply.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
